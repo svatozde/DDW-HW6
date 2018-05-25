@@ -7,6 +7,7 @@ import scipy.stats as st
 import math as m
 from scipy.special import expit
 from sklearn.metrics import roc_curve, auc
+import turtle
 
 
 def user_sim_pearson_corr(person1, person2):
@@ -297,11 +298,30 @@ movie_count = len(movie_name_map)
 map_result = dict()
 map_result_count = dict()
 
-# print(genre_weighted_cosine_similarity)
-for similarity_threshold in [0.0]:
-        map_result[round(similarity_threshold,1)] = []
-        map_result_count[round(similarity_threshold, 1)] = 0
-        print(str(similarity_threshold))
+super_result = dict()
+
+precisions_map = dict()
+
+for ratios in [(1.0,0.0,0.0),(0.0,1.0,0.0),(0.0,0.0,1.0),(0.33,0.33,0.34)]:
+
+    super_result[ratios] = dict()
+    print(ratios)
+
+    rating_sim_coef = ratios[0]
+    genre_sim_coef = ratios[1]
+    pearson_sim_coef = ratios[2]
+
+    folder_name ='r_' + str(rating_sim_coef) + '_g_' + str(genre_sim_coef)+'_p_' +str(pearson_sim_coef)+ '_figs'
+
+    if not os.path.exists(folder_name):
+        os.makedirs(folder_name)
+
+    # print(genre_weighted_cosine_similarity)
+    for similarity_threshold in [1,2,5,10,20,30,50]: #
+        super_result[ratios][similarity_threshold] = []
+        map_result[similarity_threshold] = []
+        map_result_count[similarity_threshold] = 0
+        #print(str(similarity_threshold))
         rating_comparsion = []
         for u_id in user_map_of_rated_movies.keys():
             #print(str(similarity_threshold) + ' : ' + str(u_id) )
@@ -325,17 +345,15 @@ for similarity_threshold in [0.0]:
                 # print(pearson_sim)
                 pearson_sim = expit(10*pearson_similarities[ou_id])
 
-                pearson_coef = expit((reduced_pearson_sim[0]/2) * reduced_pearson_sim[1])
-                result_sim = 0.0 * cosine_sim + 0* pearson_coef + 0.0 * pearson_sim + 0.0 * genre_sim + 1 * weighted_genre_sim
+                pearson_coef = expit((reduced_pearson_sim[0]) * reduced_pearson_sim[1])
+                result_sim =(rating_sim_coef*cosine_sim)+ (pearson_sim_coef * pearson_coef) + (genre_sim_coef * weighted_genre_sim)
 
                 result_similarity_users.append((ou_id, result_sim))
 
             result_similarity_users = sorted(result_similarity_users, key=lambda e: e[0], reverse=True)
 
             recomandations_map = dict()
-            for ou_id, sim in result_similarity_users:
-                if sim < similarity_threshold:
-                    continue
+            for ou_id, sim in result_similarity_users[:min(len(result_similarity_users),similarity_threshold)]:
                 for m_id, rating in user_map_of_ratings_sorted[ou_id]:
                     if m_id in user_map_of_rated_movies[u_id]:
                         # print('skipping' + str(m_id))
@@ -349,19 +367,20 @@ for similarity_threshold in [0.0]:
 
             final_recomandations = sorted(recomandations_map.values(),key=lambda e:e[4], reverse=True)
             avg_final_recomandations = []
-            for count, rating, relative_rating, sim, m_id in final_recomandations[:5]:
+            for count, rating, relative_rating, sim, m_id in final_recomandations:
                 u_gen_m = user_cosine_dist(movie_genre_map[m_id], user_map_of_weighted_genres[u_id])
                 if not m_id in user_map_of_rated_movies[u_id] and m_id in test_map[u_id]:
-                    avg_final_recomandations.append((sim , rating / count, m_id))
+                    avg_final_recomandations.append((sim/count , relative_rating / sim, m_id))
 
             # avg_final_recomandations = [(user_cosine_dist(movie_genre_map[m_id],user_map_of_weighted_genres[u_id])*(sim/count)*(rating/count),rating/count,m_id) for count,rating,sim,m_id in final_recomandations]
             avg_final_recomandations = sorted(avg_final_recomandations, reverse=True)
 
             #print(str(u_id) + ' has ' + str(len(avg_final_recomandations)) + ' recomandations')
 
-            for r in avg_final_recomandations[:min(20,len(final_recomandations))]:
+            for r in avg_final_recomandations:
                 m_id = r[2]
                 if u_id in test_map and m_id in test_map[u_id]:
+                    #print(str(u_id) + ' s: ' + str(r[0]))
                     # print(str(u_id)+':'+str(r))
                     real_rating = test_map[u_id][m_id]
                     guess_rating = get_bucket(r[1])
@@ -376,7 +395,7 @@ for similarity_threshold in [0.0]:
 
 
         print('number od recomandations: ' + str(len(rating_comparsion)))
-        for threshold in [0.0,0.5,1.0,1.5, 2.0, 2.5, 3.0, 3.5, 4, 4.5]:
+        for threshold in [0.0,0.5,1.0,1.5, 2.0, 2.5, 3.0, 3.5, 4, 4.5,5.0]:
             print(str(threshold) + ':' + str(similarity_threshold))
             true_positive = 0
             true_negative = 0
@@ -393,42 +412,53 @@ for similarity_threshold in [0.0]:
                 elif guess_rating < threshold and real_rating >= threshold:
                     false_negative += 1
 
-            print('Threshold:' + str(threshold) + ' and ' + str(similarity_threshold))
+            print('Threshold:' + str(threshold) + ' and ' + str(similarity_threshold) + ' and ' + str(ratios))
 
             print('tp:' + str(true_positive) + ' tn:' + str(true_negative) + ' fp:' + str(
                 false_positive) + ' fn:' + str(false_negative))
-
+            precision = 0
             if true_positive + false_positive != 0.0:
                 precision = true_positive / (true_positive + false_positive)
                 print('precision: ' + str(precision))
+            accuracy = 0
             if(true_positive+true_negative+false_negative+false_positive)!=0:
                 accuracy = (true_positive+true_negative)/(true_positive+true_negative+false_negative+false_positive)
                 print('accuracy:' + str(accuracy) )
-
+            recall = 0
             if true_positive + false_negative != 0.0:
                 recall = true_positive / (true_positive + false_negative)
                 print('recall: ' + str(recall))
 
+            super_result[ratios][similarity_threshold].append((threshold,precision,recall,accuracy))
             map_result[similarity_threshold].append((threshold,precision,recall,accuracy))
-
             map_result_count[similarity_threshold] = len(rating_comparsion)
 
         confusion_matrix = dict()
         for guess_rating, real_rating in rating_comparsion:
-            if not int(guess_rating * 10) in confusion_matrix:
-                confusion_matrix[int(guess_rating * 10)] = dict()
-            if not int(real_rating * 10) in confusion_matrix[int(guess_rating * 10)]:
-                confusion_matrix[int(guess_rating * 10)][int(real_rating * 10)] = 0
-            confusion_matrix[int(guess_rating * 10)][int(real_rating * 10)] += 1
 
+            if not guess_rating  in confusion_matrix:
+                confusion_matrix[guess_rating] = dict()
+            if not real_rating in confusion_matrix[guess_rating]:
+                confusion_matrix[guess_rating][real_rating] = 0
+            confusion_matrix[guess_rating][real_rating] += 1
 
+        print(str(threshold) + ' and ' + str(similarity_threshold))
+        print(confusion_matrix)
 
         conf_arr = np.zeros((10,10))
 
-        for x,k in enumerate(sorted(confusion_matrix.keys(), reverse=False)):
-            for y,i in enumerate(sorted(confusion_matrix[k].keys(), reverse=False)):
-                #print('g:' + str(k) + ' r:' + str(i) + ' = ' + str(confusion_matrix[k][i]))
-                conf_arr[x][y]=int(confusion_matrix[k][i])
+        ticks = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
+
+        for x,k in enumerate(ticks):
+            for y,i in enumerate(ticks):
+                value = 0
+                if k in confusion_matrix and i in confusion_matrix[k]:
+                    value = confusion_matrix[k][i]
+
+                #print('mapping: ' + str(x)+','+str(y) + '|g: ' + str(k) + ',r: ' + str(i) + '=' + str(value))
+                conf_arr[x][y]=value
+
+        #print(conf_arr)
 
         with open( 'maps/' + str(similarity_threshold) + '__map', 'wb') as handle:
             pickle.dump(conf_arr, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -440,24 +470,20 @@ for similarity_threshold in [0.0]:
 
             min_i = max([0,i-1])
             max_i = min([i+1,10])
-            precision_arr[i][i] =conf_arr[i,i]/ sum(conf_arr[:,i])
-            racall_arr[i][i] = conf_arr[i,i] / sum(conf_arr[i,:])
-
-
-
-
+            precision_arr[i][i] =conf_arr[i,i]/ sum(conf_arr[i,:])
+            racall_arr[i][i] = conf_arr[i,i] / sum(conf_arr[:,i])
 
         fig, (ax, ax1,ax2) = plt.subplots(ncols=3, figsize=(21, 10))
         # Using matshow here just because it sets the ticks up nicely. imshow is faster.
-        ticks = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
+
 
         ax.matshow(conf_arr, cmap='Blues', interpolation='nearest')
         ax.set_xticks(np.arange(len(ticks)))
         ax.set_yticks(np.arange(len(ticks)))
         ax.set_xticklabels(ticks)
         ax.set_yticklabels(ticks)
-        ax.set_xlabel('Computed rating')
-        ax.set_ylabel('Real rating')
+        ax.set_ylabel('Computed rating')
+        ax.set_xlabel('Real rating')
         ax.set_title('Confusion heatmap for rating with similarity > ' + str(similarity_threshold))
         for (i, j), z in np.ndenumerate(conf_arr):
             ax.text(j, i, str(int(z)), ha='center', va='center')
@@ -467,8 +493,8 @@ for similarity_threshold in [0.0]:
         ax1.set_yticks(np.arange(len(ticks)))
         ax1.set_xticklabels(ticks)
         ax1.set_yticklabels(ticks)
-        ax1.set_xlabel('Computed rating')
         ax1.set_ylabel('Real rating')
+        ax1.set_xlabel('Computed rating')
         ax1.set_title('Precission for similarity > ' + str(similarity_threshold))
         for i in range(0,10):
             ax1.text(i, i, "{0:.2f}".format( precision_arr[i][i]), ha='center', va='center')
@@ -478,77 +504,82 @@ for similarity_threshold in [0.0]:
         ax2.set_yticks(np.arange(len(ticks)))
         ax2.set_xticklabels(ticks)
         ax2.set_yticklabels(ticks)
-        ax2.set_xlabel('Computed rating')
         ax2.set_ylabel('Real rating')
+        ax2.set_xlabel('Computed rating')
         ax2.set_title('Recall for similarity > ' + str(similarity_threshold))
         for i in range(0, 10):
             ax2.text(i, i, "{0:.3f}".format(racall_arr[i][i]), ha='center', va='center')
 
-
-        fig.savefig('figs/'+ str(similarity_threshold) + '.jpg')
+        plt.savefig(folder_name +'/'+str(similarity_threshold) + '.jpg')
         plt.cla()
         plt.clf()
 
 
-with open('pickles/map_result.pickle', 'wb') as handle:
-    pickle.dump(map_result, handle, protocol=pickle.HIGHEST_PROTOCOL)
+     #print('num of results:' + str(len(map_result)))
+    fig, axes = plt.subplots(nrows=len(map_result), figsize=(15,30))
+    #fig.subplots_adjust(bottom = 10,  top =20  ,wspace = 50 ,hspace = 50
+    for i,key in enumerate(map_result.keys()):
+        similarities = []
+        precisions = []
+        recals = []
+        accc = []
+        f_score = []
 
-
-fig, axes = plt.subplots(nrows=len(map_result), figsize=(250,250))
-#fig.subplots_adjust(left  = 0.125 ,right = 0.9 ,bottom = 5,  top = 10 ,wspace = 10 ,hspace = 10 )
-
-for i,key in enumerate(map_result.keys()):
-    similarities = []
-    precisions = []
-    recals = []
-    accc = []
-
-    for s,p,r,a in map_result[key]:
-        similarities.append(s)
-        precisions.append(p)
-        recals.append(r)
-        accc.append(a)
-    axes[i].plot(similarities,precisions,'r')
-    axes[i].plot(similarities,recals, 'b')
-    axes[i].plot(similarities, accc, 'g')
-    axes[i].set_xticklabels(similarities)
-    axes[i].set_xticks([0.5*a for  a in range(len(similarities))])
-    axes[i].set_title('Precision and recal for similarity' + str(key), y=1.15)
-
-
-plt.show()
-fig.savefig('figs/recalls_and_precisions.jpg')
+        for s,p,r,a in map_result[key]:
+            similarities.append(s)
+            precisions.append(p)
+            recals.append(r)
+            accc.append(a)
+            f_score.append((2*p*r)/(p+r))
 
 
 
 
+        axes[i].plot(similarities,precisions,'r',label='precision')
+        axes[i].plot(similarities,recals, 'b',label='recall')
+        axes[i].plot(similarities, accc, 'g',label='accuracy')
+        axes[i].plot(similarities, f_score, 'y', label='f-score')
+        axes[i].set_xticklabels(similarities)
+        axes[i].set_xticks([0.5*a for  a in range(len(similarities))])
+        axes[i].set_title('Precision and recal for similarity' + str(key))
+        axes[i].legend(loc='lower left')
+        axes[i].grid(axis='both')
+
+    precisions_map[ratios] = precisions
+
+    plt.savefig(str(folder_name)+'/recalls_and_precisions.jpg')
+
+
+    print('Done users matrix')
 
 
 
 
-print('Done users matrix')
+ticks = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
 
-"""
+colours =  ['r','g','b','y']
+shapes = ['+','o','x']
+print(colours)
 
+with open('pickles/precisions_map.pickle', 'wb') as handle:
+    pickle.dump(precisions_map, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-
-for i,ka in enumerate(sorted_keys):
-    for j, kb in enumerate(sorted_keys):
-        if i <= j:
-            genre_similarity_matrix[i][j]=genre_similarity_matrix[j][i] = user_cosine_dist(user_map_of_genres[ka], user_map_of_genres[kb])
-            rating_similarity_matrix[i][j]=rating_similarity_matrix[j][i]=user_cosine_dist(user_map_of_ratings[ka], user_map_of_ratings[kb])
-
-
+with open('pickles/super_result.pickle', 'wb') as handle:
+    pickle.dump(super_result, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-fig = plt.figure()
-plt.imshow(genre_similarity_matrix, cmap='hot', interpolation='nearest')
-plt.show()
-fig.savefig('genre_similarity_matrix')
 
-fig = plt.figure()
-plt.imshow(rating_similarity_matrix, cmap='hot', interpolation='nearest')
-plt.show()
-fig.savefig('similarity_matrix')
+fig = plt.figure(figsize=(10,15))
+    #fig.subplots_adjust(bottom = 10,  top =20  ,wspace = 50 ,hspace = 50
+for i,key in enumerate(precisions_map.keys()):
+    plt.plot(ticks, precisions_map[key], str(colours[i%len(colours)])+str(shapes[i%3]) ,label=str(key))
 
-"""
+plt.set_xticklabels(ticks)
+plt.set_xticks([0.5*a for  a in range(len(ticks))])
+plt.set_title('Precision for different distance metrics')
+plt.legend(loc='lower left')
+plt.grid(axis='both')
+plt.savefig('figs/comparsion.jpg')
+plt.clf()
+plt.cla()
+
