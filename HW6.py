@@ -20,7 +20,6 @@ def user_sim_pearson_corr(person1, person2):
 
 
 def pearson_dist_reduced(person1, person2):
-    assert len(person1) == len(person2)
     p1 = []
     p2 = []
     for i in range(0, len(person1)):
@@ -31,6 +30,10 @@ def pearson_dist_reduced(person1, person2):
     np2 = np.array(p2)
     return (user_sim_pearson_corr(np1, np2), len(np1))
 
+def pearson_dist_reduced(person1, person2):
+    np1 = np.array(person1)
+    np2 = np.array(person2)
+    return (user_sim_pearson_corr(np1, np2), len(np1))
 
 def user_cosine_dist(person1, person2):
     prod = sum(person1 * person2)
