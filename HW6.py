@@ -353,7 +353,7 @@ for ratios in [(1.0,0.0,0.0),(0.0,1.0,0.0),(0.0,0.0,1.0),(0.33,0.33,0.34)]:
 
                 result_similarity_users.append((ou_id, result_sim))
 
-            result_similarity_users = sorted(result_similarity_users, key=lambda e: e[0], reverse=True)
+            result_similarity_users = sorted(result_similarity_users, key=lambda e: e[1], reverse=True)
 
             recomandations_map = dict()
             for ou_id, sim in result_similarity_users[:min(len(result_similarity_users),similarity_threshold)]:
